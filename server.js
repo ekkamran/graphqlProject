@@ -1,22 +1,43 @@
-var express = require('express');
+var express = require("express");
 var { graphqlHTTP } = require("express-graphql");
-var { buildSchema } = require('graphql');
+var { buildSchema } = require("graphql");
+
+// db connection
+
+const mongoose = require("mongoose");
+mongoose.connect("mongodb://localhost/graphql");
+mongoose.Promise = global.Promise;
+
+const UserModel = require("./models/user");
 
 var schema = buildSchema(`
 type Query {
-    hello: String
+    allUser : [User]
+}
+
+type User {
+    name : String,
+    age : Int,
+    admin : Boolean,
+    email : String
 }
 `);
 
-var root = { hello: () => 'Hello world!' };
-
+let resolver = {
+  allUser: async () => {
+    let user = await UserModel.find();
+    console.log(user);
+    return user;
+  },
+};
 var app = express();
 app.use(
-  "/graphql", graphqlHTTP({
+  "/graphql",
+  graphqlHTTP({
     schema: schema,
-    rootValue: root,
+    rootValue: resolver,
     graphiql: true,
   })
 );
 
-app.listen(4000, () => console.log('Now browse to localhost:4000/graphql'));
+app.listen(3000, () => console.log("Now browse to localhost:4000/graphql"));
