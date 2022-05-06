@@ -10,6 +10,7 @@ mongoose.Promise = global.Promise;
 
 const UserModel = require("./models/user");
 const ArticleModel = require("./models/article");
+const CommentModel = require("./models/comment");
 
 var schema = buildSchema(`
 type Query {
@@ -32,50 +33,61 @@ type Paginate {
 }
 
 type User {
-    name : String,
-    address : String,
-    age : Int,
-    admin : Boolean,
-    email : String,
-    updateAt : String,
-    createdAt : String,
+    name : String
+    address : String
+    age : Int
+    admin : Boolean
+    email : String
+    articles: [Article]
+    updateAt : String
+    createdAt : String
 }
 
 type Article {
-  title : String,
+  user : User
+  title : String
   body : String
+  comments : [Comment]
+  updateAt : String
+  createdAt : String
+}
+
+type Comment {
+  user : User
+  article : Article
+  approved : Boolean
+  comment : String
 }
 `);
 
 let resolver = {
-  user : async (args) => {
-    console.log(args);
-    let user = await UserModel.findById(args.id)
-    return user;
-  },
+  user: async (args) => await UserModel.findById(args.id).populated('articles').exec(),
+  
   allUsers: async (args) => {
-    let page = args.page || 1
-    let limit = args.limit || 10
-    let users = await UserModel.paginate({} , { page , limit });
+    let page = args.page || 1;
+    let limit = args.limit || 10;
+    let users = await UserModel.paginate({}, { page, limit });
     console.log(users);
     return {
-      users : users.docs,
-      paginate : {
-        total : users.total,
-        limit : users.limit,
-        page : users.page,
-        pages : users.pages,
+      users: users.docs,
+      paginate: {
+        total: users.total,
+        limit: users.limit,
+        page: users.page,
+        pages: users.pages
       }
-    }
+    };
   },
-  article : async (args) => {
-    let user = await ArticleModel.findById(args.id);
-    if(user == null) throw 'it is a null data';
-    console.log(user)
-  },
-  allArticles : async () => {
-    let articles = await ArticleModel.find();
-    return articles
+  article: async (args) =>  await ArticleModel.findById(args.id).populate(['user']).exec(),
+  allArticles: async () => {
+    let articles = await ArticleModel.find({}).populate(['user' ,{
+      path : 'comments',
+      match : {
+        approved : true
+      },
+      populate : ['user']
+    }])
+    return articles;
   }
 };
 var app = express();
@@ -84,7 +96,7 @@ app.use(
   graphqlHTTP({
     schema: schema,
     rootValue: resolver,
-    graphiql: true,
+    graphiql: true
   })
 );
 
