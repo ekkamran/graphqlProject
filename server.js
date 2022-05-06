@@ -18,6 +18,12 @@ let typeDefs = gql`
     allArticles: [Article]
   }
 
+  type Mutation {
+    addArticle(title: String!, body: String!): Article
+    updateArticle(id: String!, title: String, body: String): Article
+    deleteArticle(id: String!): Boolean
+  }
+
   type UsersResult {
     users: [User]
     paginate: Paginate
@@ -56,18 +62,18 @@ let typeDefs = gql`
     approved: Boolean
     comment: String
   }
-`
+`;
 
 
 let resolvers = {
-  Query : {
-    user: async (parent,args) => await UserModel.findById(args.id),
-    allUsers: async (parent,args) => {
+  Query: {
+    user: async (parent, args) => await UserModel.findById(args.id),
+    allUsers: async (parent, args) => {
       let page = args.page || 1;
       let limit = args.limit || 10;
 
       let users = await UserModel.paginate({}, { page, limit });
- 
+
       return {
         users: users.docs,
         paginate: {
@@ -78,19 +84,48 @@ let resolvers = {
         }
       };
     },
-    article: async (parent,args) => await ArticleModel.findById(args.id),
-    allArticles: async () =>  await ArticleModel.find({})
+    article: async (parent, args) => await ArticleModel.findById(args.id),
+    allArticles: async () => await ArticleModel.find({})
   },
-  User : { 
-      articles : async (parent, args) => await ArticleModel.find({ user : parent.id }),
+  Mutation: {
+    addArticle: async (parent, args) => {
+      let article = await ArticleModel.create({
+        user: "5c46c0d169720e4bc0d05cc1",
+        title: args.title,
+        body: args.body
+      });
+
+      return article;
+    },
+    updateArticle: async (parent, args) => {
+      let article = await ArticleModel.findByIdAndUpdate(args.id, {
+        ...args
+      });
+
+      if (!article) throw new Error("article not exsits");
+
+      return await ArticleModel.findById(args.id);
+    },
+    deleteArticle: async (parent, args) => {
+      let article = await ArticleModel.findByIdAndRemove(args.id);
+
+      if (!article) throw new Error("article not exsits");
+
+      return true;
+    }
   },
-  Article : {
-      user : async (parent, args) => await UserModel.findById(parent.user),
-      comments : async (parent, args) => await CommentModel.find({ article : parent.id , approved : true })
+  User: {
+    articles: async (parent, args) =>
+      await ArticleModel.find({ user: parent.id })
   },
-   Comment : {
-      user : async (parent, args) => await User.findById(parent.user),
-      article : async (parent, args) => await ArticleModel.findById( parent.article )
+  Article: {
+    user: async (parent, args) => await UserModel.findById(parent.user),
+    comments: async (parent, args) =>
+      await CommentModel.find({ article: parent.id, approved: true })
+  },
+  Comment: {
+    user: async (parent, args) => await User.findById(parent.user),
+    article: async (parent, args) => await ArticleModel.findById(parent.article)
   }
 };
 
